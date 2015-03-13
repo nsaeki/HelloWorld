@@ -16,6 +16,7 @@ class SearchResultsViewController: UIViewController, UITableViewDataSource, UITa
     
     var api = APIController()
     var tableData = []
+    var imageCache = [String: UIImage]()
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -36,16 +37,45 @@ class SearchResultsViewController: UIViewController, UITableViewDataSource, UITa
 
         let rowData: NSDictionary = self.tableData[indexPath.row] as NSDictionary
 
-        cell.textLabel?.text = rowData["trackName"] as? String
-        
-        let urlString: NSString = rowData["artworkUrl60"] as NSString
-        let imgURL: NSURL? = NSURL(string: urlString)
-        
-        let imgData = NSData(contentsOfURL: imgURL!)
-        cell.imageView?.image = UIImage(data: imgData!)
+        let cellText: String? = rowData["trackName"] as? String
+        cell.textLabel?.text = cellText
+        cell.imageView?.image = UIImage(named: "Blank52")
         
         let formattedPrice: NSString = rowData["formattedPrice"] as NSString
+        
+        let urlString: NSString = rowData["artworkUrl60"] as NSString
 
+        var image = self.imageCache[urlString]
+        
+        if (image == nil) {
+            var imgURL: NSURL = NSURL(string: urlString)!
+            
+            let request: NSURLRequest = NSURLRequest(URL: imgURL)
+            NSURLConnection.sendAsynchronousRequest(request, queue: NSOperationQueue.mainQueue(), completionHandler: {(response: NSURLResponse!, data: NSData!, error: NSError!) -> Void in
+                if error == nil {
+                    image = UIImage(data: data)
+                    
+                    self.imageCache[urlString] = image
+                    dispatch_async(dispatch_get_main_queue(), {
+                        if let cellToUpdate = tableView.cellForRowAtIndexPath(indexPath) {
+                            cellToUpdate.imageView?.image = image
+                        }
+                    })
+                }
+                else {
+                    println("Error: \(error.localizedDescription)")
+                }
+            })
+            
+        }
+        else {
+            dispatch_async(dispatch_get_main_queue(), {
+                if let cellToUpdate = tableView.cellForRowAtIndexPath(indexPath) {
+                    cellToUpdate.imageView?.image = image
+                }
+            })
+        }
+        
         cell.detailTextLabel?.text = formattedPrice
         
         return cell
